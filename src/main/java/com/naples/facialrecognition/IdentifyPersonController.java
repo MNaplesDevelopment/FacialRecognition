@@ -1,14 +1,18 @@
 package com.naples.facialrecognition;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -20,7 +24,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public class IdentifyPersonController {
@@ -70,6 +74,8 @@ public class IdentifyPersonController {
 
     @FXML
     protected void identifyPerson() {
+        if(currentPhoto == null) return;
+
         String input = "{\"image\": \"" + currentPhoto.replace("\\", "/") + "\"}";
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("http://localhost:5000/identify-person/"))
@@ -79,29 +85,33 @@ public class IdentifyPersonController {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            System.out.println(response.body());
-            HashMap<String, String> jsonMap = jsonToMap(response.body());
-            Image image = new Image(new FileInputStream(jsonMap.get("photoPath")));
-            imageView.setImage(image);
+            String body = response.body().replace("\\", "\\\\");
+
+            Gson gson = new Gson();
+            TypeToken<Map<String, String>> mapType = new TypeToken<>(){};
+            Map<String, String> jsonMap = gson.fromJson(body, mapType);
+
+            if(jsonMap.get("Error").equals("None")) {
+                Image image = new Image(new FileInputStream(jsonMap.get("photoPath")));
+                imageView.setImage(image);
+            }
+            else {
+                createPopupError(jsonMap.get("Error"));
+            }
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
 
-    //Replace with a proper JSON parser like Gson
-    private HashMap<String, String> jsonToMap(String jsonString)    {
-        HashMap<String, String> map = new HashMap<>();
-        int[] indexes = new int[4];
-        int j = 0;
-        for(int i = 0; i < jsonString.length(); i++)    {
-            if(jsonString.charAt(i) == '"') {
-                indexes[j] = i;
-                j++;
-            }
-        }
-        String field = jsonString.substring(indexes[0]+1, indexes[1]);
-        String value = jsonString.substring(indexes[2]+1, indexes[3]);
-        map.put(field, value);
-        return map;
+    private void createPopupError(String error) {
+        Stage newStage = new Stage();
+        VBox comp = new VBox();
+        comp.setAlignment(Pos.CENTER);
+        Label errorField = new Label(error);
+        comp.getChildren().add(errorField);
+
+        Scene stageScene = new Scene(comp, 300, 100);
+        newStage.setScene(stageScene);
+        newStage.show();
     }
 }
