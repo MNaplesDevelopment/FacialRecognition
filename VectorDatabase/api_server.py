@@ -3,6 +3,7 @@ import json
 from flask import Flask, request
 from vector_database import VectorDataBase, save_img_prediction
 import os
+import pickle
 
 app = Flask(__name__)
 vdb = VectorDataBase()
@@ -22,7 +23,23 @@ def populate_db_with_test_data():
         vdb.add_entry(file, current_name, 0)
 
 
-populate_db_with_test_data()
+def save_db():
+    with open('vdb.pkl', 'wb') as f:
+        pickle.dump(vdb, f)
+
+
+def load_db():
+    with open('vdb.pkl', 'rb') as f:
+        db = pickle.load(f)
+    return db
+
+
+# This is for testing purposes
+
+#populate_db_with_test_data()
+#save_db()
+vdb = load_db()
+
 
 
 @app.route('/')
@@ -52,8 +69,12 @@ def identify_person_from_server():
         print(params)
         image = params['image']
         names, border = vdb.find_matches(image)
-        save_img_prediction(image, border, names[0])
-        return '{"photoPath": "' + os.getcwd() + '\\test.jpg"}', 200
+        if not border:
+            if not names:
+                return '{"photoPath": "None", "Error": "No matches found"}', 200
+            return '{"photoPath": "None", "Error": "Face not detected"}', 200
+        path = save_img_prediction(image, border, names[0])
+        return f'{"photoPath": "{os.getcwd()}\\{path}", "Error": "None"}', 200
 
 
 if __name__ == '__main__':
