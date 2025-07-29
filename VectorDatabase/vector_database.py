@@ -26,6 +26,7 @@ def reformat_border(facial_area):
 
 
 def save_img_prediction(image_path: str, facial_border: dict, name: str):
+    filename = 'identified-person.jpg'
     image = cv.cvtColor(cv.imread(image_path), cv.COLOR_BGR2RGB)
 
     top, left = facial_border['top'], facial_border['left']
@@ -36,11 +37,9 @@ def save_img_prediction(image_path: str, facial_border: dict, name: str):
     font_scale = image.shape[1] / 300
     text_pos = (left, bottom + int(image.shape[0] * 0.06))
     cv.putText(image, name, text_pos, cv.FONT_HERSHEY_PLAIN, font_scale, (0, 255, 0), 3)
-    cv.imwrite('identified-person.jpg', cv.cvtColor(image, cv.COLOR_RGB2BGR))
+    cv.imwrite(filename, cv.cvtColor(image, cv.COLOR_RGB2BGR))
 
-    #plt.figure(figsize=(10, 5))
-    #plt.imshow(image)
-    #plt.show()
+    return filename
 
 
 class VectorDataBase:
@@ -67,7 +66,11 @@ class VectorDataBase:
 
 
     def find_matches(self, image_path: str):
-        face = DeepFace.represent(image_path)
+        try:
+            face = DeepFace.represent(image_path)
+        except ValueError:
+            print(f'Face not detected at: {image_path}')
+            return [], []
         embedding = face[0]['embedding']
         matching_persons = []
         for name in self.db.keys():
